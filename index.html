@@ -1,1 +1,641 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>整数の並べ方シミュレータ</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+    margin: 0; padding: 12px; background: #f0f4f8; color: #1a2332;
+    max-width: 600px; margin: 0 auto; user-select: none; -webkit-user-select: none;
+  }
+  h1 { font-size: 18px; margin: 4px 0 8px; }
+  .intro {
+    background: #fffde7; border-left: 4px solid #fbc02d; padding: 8px 12px;
+    font-size: 13px; border-radius: 4px; margin-bottom: 12px; line-height: 1.5;
+  }
+  .section { background: white; border-radius: 8px; padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .section-title { font-size: 13px; color: #546e7a; font-weight: bold; margin-bottom: 8px; }
+
+  .toggles { display: flex; flex-wrap: wrap; gap: 6px; }
+  .toggle {
+    flex: 1 1 calc(50% - 3px); min-height: 40px; padding: 8px;
+    border: 2px solid #cfd8dc; border-radius: 6px; background: #fafafa;
+    font-size: 12px; cursor: pointer; text-align: center; line-height: 1.3; transition: all 0.15s;
+  }
+  .toggle.active { background: #1976d2; color: white; border-color: #1565c0; }
+  .toggle:active { transform: scale(0.97); }
+
+  .zero-toggle {
+    width: 100%; min-height: 40px; margin-bottom: 8px; padding: 8px;
+    border: 2px solid #cfd8dc; border-radius: 6px; background: #fafafa;
+    font-size: 13px; cursor: pointer; font-weight: bold; transition: all 0.15s;
+  }
+  .zero-toggle.active { background: #c62828; color: white; border-color: #b71c1c; }
+
+  .formula {
+    font-size: 18px; text-align: center; padding: 12px 10px; background: #f8f9fa;
+    border-radius: 6px; min-height: 50px; display: flex; align-items: center;
+    justify-content: center; flex-wrap: wrap; gap: 5px; line-height: 1.6;
+  }
+  .formula-part {
+    padding: 5px 11px; border-radius: 8px; cursor: pointer; transition: all 0.15s;
+    background: rgba(25,118,210,0.1); border: 1.5px solid transparent;
+    font-weight: bold; min-width: 34px;
+  }
+  .formula-part:active { transform: scale(0.95); }
+  .formula-part.active { background: #ffc107; color: #1a1a1a; border-color: #ff8f00; }
+  .formula-total { font-weight: bold; font-size: 22px; color: #c62828; }
+  .formula-hint { font-size: 11px; color: #1976d2; text-align: center; margin-top: 6px; }
+  .formula-note { font-size: 12px; color: #757575; text-align: center; margin-top: 6px; }
+
+  .bubble {
+    background: #fff; border: 2px solid #ff8f00; border-radius: 10px;
+    padding: 10px 12px; margin-top: 10px; font-size: 13px; line-height: 1.6;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12); animation: pop 0.2s ease-out;
+  }
+  @keyframes pop { from { opacity:0; transform:translateY(-6px);} to {opacity:1; transform:translateY(0);} }
+  .bubble-head { font-weight: bold; color: #e65100; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .bubble-head .tag { background: #ffc107; color: #1a1a1a; padding: 1px 8px; border-radius: 10px; font-size: 14px; }
+  .bubble-head .order-badge { background: #1976d2; color: white; padding: 1px 8px; border-radius: 10px; font-size: 11px; }
+  .bubble-body { color: #333; }
+  .bubble-body .digits-line {
+    margin-top: 6px; font-family: monospace; font-size: 14px; color: #1565c0;
+    background: #e3f2fd; padding: 4px 8px; border-radius: 4px; display: inline-block;
+  }
+
+  .formula-cases {
+    font-size: 13px; background: white; border: 1px dashed #b0bec5;
+    padding: 10px; border-radius: 4px; margin-top: 8px; line-height: 1.7;
+  }
+  .formula-cases strong { color: #1565c0; }
+
+  .digits { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 6px; }
+  .digit-slot {
+    aspect-ratio: 1; border: 2px dashed #b0bec5; border-radius: 8px; background: #eceff1;
+    display: flex; align-items: center; justify-content: center; position: relative;
+    font-size: 11px; color: #90a4ae;
+  }
+  .digit-slot.formula-target { border-color: #ffc107; background: #fff8e1; border-style: solid; }
+  .digit-slot.highlight-good { border-color: #4caf50; background: #e8f5e9; border-style: solid; }
+  .digit-slot.highlight-bad { border-color: #f44336; background: #ffebee; border-style: solid; }
+  .digit-label { position: absolute; top: 2px; left: 4px; font-size: 10px; color: #90a4ae; }
+
+  .number-ball {
+    width: 85%; height: 85%; display: flex; align-items: center; justify-content: center;
+    font-weight: bold; font-size: 22px; cursor: grab; touch-action: none; border-radius: 50%; border: 2px solid;
+  }
+  .number-ball.normal { background: #bbdefb; color: #0d47a1; border-color: #0d47a1; }
+  .number-ball.zero { background: #ffcdd2; color: #b71c1c; border-color: #b71c1c; }
+  .number-ball.dragging { opacity: 0.4; }
+
+  .pool { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-content: center; padding: 12px; background: #f5f5f5; border-radius: 6px; min-height: 76px; }
+  .pool-slot { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; }
+
+  .status { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 8px 12px; background: #e3f2fd; border-radius: 6px; flex-wrap: wrap; gap: 6px; }
+  .check-msg { font-weight: bold; }
+  .check-msg.good { color: #2e7d32; } .check-msg.bad { color: #c62828; } .check-msg.neutral { color: #546e7a; }
+  .btn { padding: 6px 12px; border: none; border-radius: 5px; background: #546e7a; color: white; font-size: 13px; cursor: pointer; }
+  .btn:active { transform: scale(0.96); } .btn.primary { background: #1976d2; }
+  .progress { font-size: 12px; color: #455a64; }
+
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 4px; max-height: 280px; overflow-y: auto; padding: 4px; background: #fafafa; border-radius: 4px; }
+  .gallery-item { padding: 5px 6px; background: #eceff1; border-radius: 4px; font-family: monospace; font-size: 14px; text-align: center; color: #b0bec5; transition: all 0.2s; }
+  .gallery-item.found { background: #c8e6c9; color: #1b5e20; font-weight: bold; }
+  .gallery-info { font-size: 11px; color: #757575; margin-bottom: 6px; text-align: center; }
+  .sample-list { background: #fafafa; padding: 8px; border-radius: 4px; }
+  .sample-item { font-family: monospace; font-size: 14px; padding: 4px 6px; margin: 2px 0; background: white; border-radius: 3px; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>整数の並べ方シミュレータ</h1>
+
+<div class="intro">
+  数字を <strong>4桁</strong> の整数に並べます。使える数字は<strong>いつも6個</strong>（「0を含める」と、いちばん大きい6が0に入れかわります）。<br>
+  <span style="color:#b71c1c; font-weight:bold;">赤い0</span> は先頭に置けません。<br>
+  式は <strong>「条件のきびしい桁から」</strong> 決める順に並んでいます。式の数字をタップすると理由がわかります。
+</div>
+
+<button class="zero-toggle" id="zero-toggle">0 を含める</button>
+
+<div class="section">
+  <div class="section-title">条件（タップでON/OFF）</div>
+  <div class="toggles" id="toggles"></div>
+</div>
+
+<div class="section">
+  <div class="section-title">問題</div>
+  <div id="question" style="font-size:15px; line-height:1.5; color:#1a2332; background:#e8f0fe; padding:10px 12px; border-radius:6px; margin-bottom:10px; font-weight:500;"></div>
+  <div class="section-title">並べ方の総数</div>
+  <div class="formula" id="formula"></div>
+  <div class="formula-hint" id="formula-hint"></div>
+  <div class="formula-note" id="formula-note"></div>
+  <div id="bubble-area"></div>
+  <div id="formula-cases"></div>
+</div>
+
+<div class="section">
+  <div class="section-title">4桁の整数</div>
+  <div class="digits" id="digits"></div>
+  <div class="status">
+    <span class="check-msg neutral" id="check-msg">数字をドラッグして並べてみよう</span>
+    <button class="btn" id="reset-digits">リセット</button>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">数字（ここからドラッグ）</div>
+  <div class="pool" id="pool" data-target="pool"></div>
+</div>
+
+<div class="section">
+  <div class="section-title">作った整数の記録</div>
+  <div class="status">
+    <span class="progress" id="progress">0 / 0 通り発見</span>
+    <button class="btn primary" id="reset-found">記録リセット</button>
+  </div>
+  <div id="display-area" style="margin-top: 8px;"></div>
+</div>
+
+<script>
+// ============================================================
+// データ
+// ============================================================
+const DIGITS = 4;
+const POS = ['千の位','百の位','十の位','一の位'];
+let includeZero = false;
+let constraints = { even:false, mult5:false, odd:false, repeat:false };
+let slots = Array(DIGITS).fill(null);
+let foundPatterns = new Set();
+let allValidNumbers = [];
+let dragState = null;
+let showUndiscovered = false; // 未発見マスを表示するか（トグル）
+
+const constraintDefs = [
+  { key: 'even',   label: '偶数（末尾が偶数）' },
+  { key: 'mult5',  label: '5の倍数（末尾0か5）' },
+  { key: 'odd',    label: '奇数（末尾が奇数）' },
+  { key: 'repeat', label: '同じ数字を使ってよい' },
+];
+
+// 使える数字は常に6個。0を入れるときは一番大きい6を抜く。
+function availableDigits() { return includeZero ? [0,1,2,3,4,5] : [1,2,3,4,5,6]; }
+
+// 条件に応じた簡潔な問題文
+function buildQuestion(c){
+  const digits=availableDigits().join(',');
+  const pick = c.repeat ? '4個（同じ数字をくり返し使ってよい）' : '異なる4個';
+  let kind='整数';
+  if(c.even)kind='偶数';
+  else if(c.odd)kind='奇数';
+  else if(c.mult5)kind='5の倍数';
+  if(isContradictory(c)) return `${digits} から ${pick} を並べてできる4桁で、偶数かつ奇数のもの`;
+  return `${digits} から ${pick} を並べてできる4桁の${kind}は何通り？`;
+}
+
+// ============================================================
+// ロジック層
+// ============================================================
+function isEven(d){return d%2===0;}
+function isOdd(d){return d%2===1;}
+
+function satisfies(nums,c){
+  if(nums.length!==DIGITS)return false;
+  if(nums[0]===0)return false;
+  if(!c.repeat){if(new Set(nums).size!==nums.length)return false;}
+  if(c.even&&!isEven(nums[DIGITS-1]))return false;
+  if(c.odd&&!isOdd(nums[DIGITS-1]))return false;
+  if(c.mult5&&!(nums[DIGITS-1]===0||nums[DIGITS-1]===5))return false;
+  return true;
+}
+function enumerateAll(c){
+  const digits=availableDigits(); const result=[];
+  (function rec(cur){
+    if(cur.length===DIGITS){if(satisfies(cur,c))result.push(cur.slice());return;}
+    for(const d of digits){if(!c.repeat&&cur.includes(d))continue;cur.push(d);rec(cur);cur.pop();}
+  })([]);
+  return result;
+}
+function partialSatisfies(slots,c){
+  if(slots[0]===0)return false;
+  const last=slots[DIGITS-1];
+  if(last!==null){
+    if(c.even&&!isEven(last))return false;
+    if(c.odd&&!isOdd(last))return false;
+    if(c.mult5&&!(last===0||last===5))return false;
+  }
+  return true;
+}
+function isContradictory(c){ return c.even&&c.odd; }
+
+// 末尾条件の候補数字リスト
+function endDigitList(c){
+  const digits=availableDigits();
+  if(c.even)return digits.filter(isEven);
+  if(c.odd)return digits.filter(isOdd);
+  if(c.mult5)return digits.filter(d=>d===0||d===5);
+  return null;
+}
+
+// 「きびしい順」に桁を並べる
+function buildOrder(c){
+  const hasEnd=c.even||c.odd||c.mult5;
+  const order=[];
+  if(hasEnd)order.push(DIGITS-1);   // 一の位
+  if(includeZero && !order.includes(0))order.push(0); // 千の位（0制限）
+  for(let i=0;i<DIGITS;i++)if(!order.includes(i))order.push(i);
+  return order;
+}
+
+// 場合分けが必要か（0あり×(偶数 or 5の倍数)×重複なし）
+function needsCases(c){ return includeZero && (c.even||c.mult5) && !c.repeat; }
+
+// きびしい順の各桁の項を生成（場合分け不要時）
+function buildParts(c){
+  const digits=availableDigits();
+  const n=digits.length;
+  const dstr=digits.join(',');
+  const order=buildOrder(c);
+  const parts=[];
+  let used=0;
+
+  for(const idx of order){
+    const isEnd = (idx===DIGITS-1) && (c.even||c.odd||c.mult5);
+    const isHead = (idx===0);
+    let count, head, body, line, orderReason;
+
+    if(c.repeat){
+      // 重複あり：減らない
+      if(isEnd){
+        const el=endDigitList(c);
+        count=el.length;
+        const kind=c.even?'偶数':c.odd?'奇数':'5の倍数';
+        head=`${POS[idx]}（末尾）`;
+        body=`${kind}になるには、一の位が {${el.join(',')}} のどれか。だから ${count} 通り。重複ありなので、他の桁と同じ数字でもかまいません。`;
+        line=`一の位 ∈ {${el.join(',')}} → ${count}通り`;
+        orderReason='条件がついた桁なので最初に決める';
+      } else if(isHead && includeZero){
+        count=n-1;
+        head=`${POS[idx]}（先頭）`;
+        body=`先頭に 0 は置けません（0をつけると4桁になりません）。使える {${dstr}} から 0 を除いた ${count} 通り。重複ありでも、ここは減りません。`;
+        line=`{${dstr}} から 0 を除く → ${count}通り`;
+        orderReason='0 が置けない制限つきの桁';
+      } else {
+        count=n;
+        head=`${POS[idx]}`;
+        body=`重複ありなので、すでに使った数字をもう一度使えます。だから候補はいつも ${n} 通りのまま減りません。`;
+        line=`候補 ${n} 通り（減らない）`;
+        orderReason='制限のない桁';
+      }
+    } else {
+      // 重複なし（場合分け不要パターンのみここに来る）
+      if(isEnd){
+        const el=endDigitList(c);
+        count=el.length;
+        const kind=c.even?'偶数':c.odd?'奇数':'5の倍数';
+        head=`${POS[idx]}（末尾）`;
+        body=`${kind}になるには、一の位が {${el.join(',')}} のどれか。だから ${count} 通り。一番きびしい条件なので、ここから先に決めます。`;
+        line=`一の位 ∈ {${el.join(',')}} → ${count}通り`;
+        orderReason='一番きびしい条件の桁';
+        used++;
+      } else if(isHead && includeZero){
+        // 先頭：0を除き、既に使った分も除く
+        count=(n-1)-used;
+        head=`${POS[idx]}（先頭）`;
+        const usedNote = used>0 ? `すでに ${used} 個を他の桁で使い、さらに ` : '';
+        body=`先頭に 0 は置けません。${usedNote}0 を除くので、候補は ${count} 通り。`;
+        line=`${n} − 1(0) ${used>0?`− ${used}(使用済み)`:''} = ${count}通り`;
+        orderReason='0 が置けない制限つきの桁';
+        used++;
+      } else {
+        // 自由な桁：これまで使った分だけ減る
+        count=n-used;
+        head=`${POS[idx]}`;
+        body=`同じ数字は使えないので、すでに使った ${used} 個を除いて ${count} 通り。`;
+        line=`${n} − ${used}(使用済み) = ${count}通り`;
+        orderReason='制限のない桁';
+        used++;
+      }
+    }
+    parts.push({ idx, count, head, body, line, orderReason, target:[idx] });
+  }
+  const total=parts.reduce((a,p)=>a*p.count,1);
+  return { parts, total };
+}
+
+// 場合分け（0あり×偶数 or 5の倍数×重複なし）
+function buildCases(c){
+  const digits=availableDigits();
+  const n=digits.length;
+  if(c.even){
+    const evenNon0=digits.filter(d=>isEven(d)&&d!==0).length; // 2,4,6
+    // 末尾0: 千の位は0以外の(n-1)、百:(n-2)、十:(n-3)
+    const a1=(n-1), a2=(n-2), a3=(n-3);
+    const caseA=a1*a2*a3;
+    // 末尾2,4,6: 末尾3通り × 千の位(0と末尾を除く n-2) × 百(n-2) × 十(n-3)
+    const b0=evenNon0, b1=(n-2), b2=(n-2), b3=(n-3);
+    const caseB=b0*b1*b2*b3;
+    return {
+      intro:'一の位（末尾）が 0 か、0以外の偶数かで、先頭に置ける数が変わります。だから分けて数えます。',
+      cases:[
+        { name:'末尾が 0 のとき', detail:`一の位=0（1通り）→ 千の位 ${a1} × 百の位 ${a2} × 十の位 ${a3}`,
+          formula:`${a1}×${a2}×${a3}`, value:caseA,
+          why:'末尾を0にしたので、先頭は残りの数字すべてから選べる（0はもう使った）。' },
+        { name:'末尾が 2・4・6 のとき', detail:`一の位 ${b0}通り → 千の位 ${b1}（0と末尾を除く）× 百 ${b2} × 十 ${b3}`,
+          formula:`${b0}×${b1}×${b2}×${b3}`, value:caseB,
+          why:'末尾が0以外の偶数なので、先頭からは「その偶数」と「0」の2つを除く。' }
+      ],
+      total:caseA+caseB
+    };
+  }
+  if(c.mult5){
+    const a1=(n-1), a2=(n-2), a3=(n-3);
+    const caseA=a1*a2*a3; // 末尾0
+    const b1=(n-2), b2=(n-2), b3=(n-3);
+    const caseB=b1*b2*b3; // 末尾5、先頭は0と5を除く
+    return {
+      intro:'5の倍数は末尾が 0 か 5。どちらかで先頭に置ける数が変わるので分けます。',
+      cases:[
+        { name:'末尾が 0 のとき', detail:`一の位=0 → 千の位 ${a1} × 百 ${a2} × 十 ${a3}`,
+          formula:`${a1}×${a2}×${a3}`, value:caseA,
+          why:'末尾を0にしたので、先頭は残りすべてから選べる。' },
+        { name:'末尾が 5 のとき', detail:`一の位=5 → 千の位 ${b1}（0と5を除く）× 百 ${b2} × 十 ${b3}`,
+          formula:`${b1}×${b2}×${b3}`, value:caseB,
+          why:'末尾が5なので、先頭からは「5」と「0」を除く。' }
+      ],
+      total:caseA+caseB
+    };
+  }
+  return null;
+}
+
+function numbersToKey(nums){ return nums.join(','); }
+
+// ============================================================
+// 状態更新
+// ============================================================
+function recomputeValidNumbers(){
+  allValidNumbers = isContradictory(constraints) ? [] : enumerateAll(constraints);
+  foundPatterns = new Set();
+}
+function checkPlacement(){
+  const filled=slots.filter(s=>s!==null).length;
+  if(filled===0)return {state:'empty',msg:'数字をドラッグして並べてみよう'};
+  if(slots[0]===0)return {state:'bad',msg:'⚠ 先頭は0以外（4桁の整数になりません）'};
+  if(filled<DIGITS){
+    if(!partialSatisfies(slots,constraints))return {state:'bad',msg:'条件に違反しています'};
+    return {state:'partial',msg:`配置中 (${filled}/${DIGITS})`};
+  }
+  if(satisfies(slots,constraints)){
+    const key=numbersToKey(slots);
+    const isNew=!foundPatterns.has(key);
+    foundPatterns.add(key);
+    return {state:'good',msg:`✓ ${slots.join('')} は条件を満たします`+(isNew?'（新発見）':'（記録済み）'),isNew};
+  }
+  return {state:'bad',msg:'条件を満たしていません'};
+}
+
+// ============================================================
+// UI
+// ============================================================
+function renderZeroToggle(){
+  const btn=document.getElementById('zero-toggle');
+  btn.className='zero-toggle'+(includeZero?' active':'');
+  btn.textContent=includeZero?'0 を含めている（タップで外す）':'0 を含める';
+}
+function renderToggles(){
+  const div=document.getElementById('toggles'); div.innerHTML='';
+  for(const def of constraintDefs){
+    const btn=document.createElement('button');
+    btn.className='toggle'+(constraints[def.key]?' active':'');
+    btn.textContent=def.label;
+    btn.onclick=()=>{
+      if(def.key==='even'&&!constraints.even)constraints.odd=false;
+      if(def.key==='odd'&&!constraints.odd)constraints.even=false;
+      constraints[def.key]=!constraints[def.key];
+      recomputeValidNumbers(); clearBubble(); renderAll();
+    };
+    div.appendChild(btn);
+  }
+}
+
+let activeBubblePart=null;
+function clearBubble(){
+  document.getElementById('bubble-area').innerHTML='';
+  document.querySelectorAll('.formula-part').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.digit-slot').forEach(s=>s.classList.remove('formula-target'));
+  activeBubblePart=null;
+}
+function showBubble(part,spanEl,orderNum){
+  if(activeBubblePart===part){clearBubble();return;}
+  clearBubble(); activeBubblePart=part;
+  spanEl.classList.add('active');
+  part.target.forEach(i=>{const s=document.querySelector(`.digit-slot[data-index="${i}"]`);if(s)s.classList.add('formula-target');});
+  const area=document.getElementById('bubble-area');
+  const bubble=document.createElement('div'); bubble.className='bubble';
+  bubble.innerHTML=`
+    <div class="bubble-head">
+      <span class="order-badge">${orderNum}番目に決める</span>
+      <span class="tag">${part.count}</span> ${part.head}
+    </div>
+    <div class="bubble-body">${part.body}<div class="digits-line">${part.line}</div></div>
+  `;
+  area.appendChild(bubble);
+}
+
+function renderFormula(){
+  document.getElementById('question').textContent = buildQuestion(constraints);
+  const div=document.getElementById('formula');
+  const hint=document.getElementById('formula-hint');
+  const note=document.getElementById('formula-note');
+  const casesDiv=document.getElementById('formula-cases');
+  div.innerHTML='';hint.innerHTML='';note.innerHTML='';casesDiv.innerHTML='';
+
+  if(isContradictory(constraints)){
+    div.innerHTML='<span class="formula-total">0</span> 通り';
+    note.innerHTML='矛盾する条件です（偶数かつ奇数）'; return;
+  }
+
+  const enumeratedCount=allValidNumbers.length;
+
+  if(needsCases(constraints)){
+    const cases=buildCases(constraints);
+    div.innerHTML=`<span class="formula-total">${enumeratedCount}</span> 通り`;
+    note.innerHTML=`<span style="color:#1565c0;">※ 末尾の数字によって場合分けが必要</span>`;
+    const block=document.createElement('div'); block.className='formula-cases';
+    let html=`<strong>場合分け：</strong>${cases.intro}<br><br>`;
+    cases.cases.forEach(cs=>{
+      html+=`<strong>${cs.name}</strong><br>　${cs.detail}<br>　= ${cs.formula} = <strong>${cs.value}</strong> 通り<br>　<span style="color:#666;font-size:12px;">${cs.why}</span><br><br>`;
+    });
+    html+=`合計：${cases.cases.map(c=>c.value).join(' + ')} = <strong style="color:#c62828;font-size:16px;">${cases.total}</strong> 通り`;
+    block.innerHTML=html; casesDiv.appendChild(block);
+    if(enumeratedCount!==cases.total)note.innerHTML+=`<br><span style="color:#c62828;">⚠ 列挙=${enumeratedCount}と不一致</span>`;
+    return;
+  }
+
+  const { parts, total }=buildParts(constraints);
+  parts.forEach((part,idx)=>{
+    if(idx>0){const op=document.createElement('span');op.textContent='×';op.style.color='#888';div.appendChild(op);}
+    const span=document.createElement('span');
+    span.className='formula-part';
+    span.textContent=part.count;
+    span.onclick=()=>showBubble(part,span,idx+1);
+    div.appendChild(span);
+  });
+  const eq=document.createElement('span');eq.textContent='=';eq.style.color='#888';div.appendChild(eq);
+  const tot=document.createElement('span');tot.className='formula-total';tot.textContent=total;div.appendChild(tot);
+  const unit=document.createElement('span');unit.textContent='通り';div.appendChild(unit);
+
+  // きびしい順のヒント
+  const orderNames=parts.map(p=>p.head.replace(/（.*）/,'')).join(' → ');
+  hint.innerHTML=`決める順：<strong>${orderNames}</strong>　👆数字をタップで理由`;
+
+  if(enumeratedCount===total){
+    note.innerHTML=`<span style="color:#2e7d32;">✓ 全部書き出して数えても ${enumeratedCount} 通りで一致</span>`;
+  } else {
+    note.innerHTML=`<span style="color:#c62828;">⚠ 列挙=${enumeratedCount} と一致しません</span>`;
+  }
+}
+
+function renderDigits(){
+  const div=document.getElementById('digits');div.innerHTML='';
+  const check=checkPlacement();
+  for(let i=0;i<DIGITS;i++){
+    const slot=document.createElement('div');slot.className='digit-slot';
+    slot.dataset.index=i;slot.dataset.target='digit';
+    const lbl=document.createElement('span');lbl.className='digit-label';lbl.textContent=POS[i];slot.appendChild(lbl);
+    if(slots[i]!==null)slot.appendChild(renderBall(slots[i],`placed-${i}`));
+    if(check.state==='bad'&&slots[i]!==null){if(isSlotViolating(i))slot.classList.add('highlight-bad');}
+    else if(check.state==='good'&&check.isNew)slot.classList.add('highlight-good');
+    if(activeBubblePart&&activeBubblePart.target.includes(i))slot.classList.add('formula-target');
+    div.appendChild(slot);
+  }
+  const msg=document.getElementById('check-msg');
+  msg.textContent=check.msg;
+  msg.className='check-msg '+(check.state==='good'?'good':check.state==='bad'?'bad':'neutral');
+}
+function isSlotViolating(idx){
+  const v=slots[idx];if(v===null)return false;
+  if(idx===0&&v===0)return true;
+  if(idx===DIGITS-1){
+    if(constraints.even&&!isEven(v))return true;
+    if(constraints.odd&&!isOdd(v))return true;
+    if(constraints.mult5&&!(v===0||v===5))return true;
+  }
+  return false;
+}
+function renderBall(value,dragId){
+  const ball=document.createElement('div');
+  ball.className='number-ball '+(value===0?'zero':'normal');
+  ball.textContent=value;ball.dataset.value=value;ball.dataset.dragId=dragId;
+  attachDragHandlers(ball);return ball;
+}
+function renderPool(){
+  const div=document.getElementById('pool');div.innerHTML='';
+  div.dataset.target='pool';
+  const digits=availableDigits();
+  if(constraints.repeat){
+    for(const d of digits){const slot=document.createElement('div');slot.className='pool-slot';slot.dataset.target='pool';slot.appendChild(renderBall(d,`pool-${d}`));div.appendChild(slot);}
+  } else {
+    const used=new Set(slots.filter(s=>s!==null));
+    for(const d of digits){const slot=document.createElement('div');slot.className='pool-slot';slot.dataset.target='pool';if(!used.has(d))slot.appendChild(renderBall(d,`pool-${d}`));div.appendChild(slot);}
+  }
+}
+function renderProgress(){document.getElementById('progress').textContent=`${foundPatterns.size} / ${allValidNumbers.length} 通り発見`;}
+function renderDisplayArea(){
+  const area=document.getElementById('display-area');area.innerHTML='';
+  const total=allValidNumbers.length;
+  if(total===0){area.innerHTML='<div class="gallery-info">この条件では4桁の整数が作れません</div>';return;}
+  if(total<=200){
+    const info=document.createElement('div');info.className='gallery-info';
+    info.textContent=showUndiscovered?`全${total}通り（緑=発見済み、灰=まだ）`:`見つけた整数（小さい順）`;
+    area.appendChild(info);
+
+    // トグルボタン
+    const toggleBtn=document.createElement('button');
+    toggleBtn.className='btn';
+    toggleBtn.style.cssText='margin-bottom:8px; background:'+(showUndiscovered?'#c62828':'#546e7a');
+    toggleBtn.textContent=showUndiscovered?'まだのものを隠す':'まだ見つけていないものを表示';
+    toggleBtn.onclick=()=>{ showUndiscovered=!showUndiscovered; renderDisplayArea(); };
+    area.appendChild(toggleBtn);
+
+    const sorted=[...allValidNumbers].sort((a,b)=>parseInt(a.join(''))-parseInt(b.join('')));
+
+    if(!showUndiscovered){
+      // 発見済みだけを詰めて表示（未発見はマスごと出さない＝全体数が見えない）
+      const found=sorted.filter(nums=>foundPatterns.has(numbersToKey(nums)));
+      if(found.length===0){
+        const e=document.createElement('div');e.className='gallery-info';e.textContent='まだ何も見つけていません。数字を並べてみよう！';area.appendChild(e);
+      } else {
+        const gallery=document.createElement('div');gallery.className='gallery';
+        for(const nums of found){
+          const item=document.createElement('div');item.className='gallery-item found';
+          item.textContent=nums.join('');gallery.appendChild(item);
+        }
+        area.appendChild(gallery);
+      }
+    } else {
+      // 全マス表示（緑＝発見済み、灰＝まだ）
+      const gallery=document.createElement('div');gallery.className='gallery';
+      for(const nums of sorted){
+        const item=document.createElement('div');item.className='gallery-item';
+        if(foundPatterns.has(numbersToKey(nums)))item.classList.add('found');
+        item.textContent=nums.join('');gallery.appendChild(item);
+      }
+      area.appendChild(gallery);
+    }
+  } else if(total<=1000){
+    const info=document.createElement('div');info.className='gallery-info';info.textContent=`全${total}通り（多いので発見済みのみ表示）`;area.appendChild(info);
+    if(foundPatterns.size===0){const e=document.createElement('div');e.className='gallery-info';e.textContent='まだ発見していません';area.appendChild(e);}
+    else{const list=document.createElement('div');list.className='sample-list';const sf=[...foundPatterns].sort((a,b)=>parseInt(a.replace(/,/g,''))-parseInt(b.replace(/,/g,'')));for(const key of sf){const item=document.createElement('div');item.className='sample-item';item.textContent=key.split(',').join('');list.appendChild(item);}area.appendChild(list);}
+  } else {
+    const info=document.createElement('div');info.className='gallery-info';info.textContent=`全${total}通り（多すぎるのでランダム10通り）`;area.appendChild(info);
+    const list=document.createElement('div');list.className='sample-list';
+    for(const nums of pickRandom(allValidNumbers,10)){const item=document.createElement('div');item.className='sample-item';item.textContent=nums.join('');list.appendChild(item);}
+    area.appendChild(list);
+    if(foundPatterns.size>0){const sub=document.createElement('div');sub.className='gallery-info';sub.style.marginTop='8px';sub.textContent=`発見したパターン: ${foundPatterns.size}個`;area.appendChild(sub);}
+  }
+}
+function pickRandom(arr,n){const r=[],u=new Set();while(r.length<n&&u.size<arr.length){const i=Math.floor(Math.random()*arr.length);if(!u.has(i)){u.add(i);r.push(arr[i]);}}return r;}
+function renderAll(){renderZeroToggle();renderToggles();renderFormula();renderDigits();renderPool();renderProgress();renderDisplayArea();}
+
+// ドラッグ
+function attachDragHandlers(el){el.addEventListener('mousedown',startDrag);el.addEventListener('touchstart',startDrag,{passive:false});}
+function startDrag(e){
+  e.preventDefault();
+  const ballEl=e.currentTarget;const value=parseInt(ballEl.dataset.value);const dragId=ballEl.dataset.dragId;
+  let fromSlotIdx=-1;if(dragId.startsWith('placed-'))fromSlotIdx=parseInt(dragId.split('-')[1]);
+  dragState={value,fromSlotIdx,el:ballEl};ballEl.classList.add('dragging');
+  const ghost=ballEl.cloneNode(true);
+  Object.assign(ghost.style,{position:'fixed',pointerEvents:'none',zIndex:'9999',opacity:'0.8',width:'50px',height:'50px'});
+  ghost.id='drag-ghost';document.body.appendChild(ghost);
+  const mg=(x,y)=>{ghost.style.left=(x-25)+'px';ghost.style.top=(y-25)+'px';};
+  const onMove=(ev)=>{const pt=ev.touches?ev.touches[0]:ev;mg(pt.clientX,pt.clientY);};
+  const onEnd=(ev)=>{const pt=ev.changedTouches?ev.changedTouches[0]:ev;handleDrop(document.elementFromPoint(pt.clientX,pt.clientY));ghost.remove();document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onEnd);document.removeEventListener('touchmove',onMove);document.removeEventListener('touchend',onEnd);if(dragState)dragState.el.classList.remove('dragging');dragState=null;};
+  document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onEnd);document.addEventListener('touchmove',onMove,{passive:false});document.addEventListener('touchend',onEnd);
+  const pt=e.touches?e.touches[0]:e;mg(pt.clientX,pt.clientY);
+}
+function handleDrop(target){
+  if(!dragState)return;let dz=target;while(dz&&!dz.dataset?.target)dz=dz.parentElement;if(!dz)return;
+  const{value,fromSlotIdx}=dragState;
+  if(dz.dataset.target==='digit'){
+    const toIdx=parseInt(dz.dataset.index);if(toIdx===fromSlotIdx)return;
+    const occupant=slots[toIdx];
+    if(constraints.repeat){if(fromSlotIdx>=0)slots[fromSlotIdx]=null;slots[toIdx]=value;}
+    else{if(fromSlotIdx>=0)slots[fromSlotIdx]=null;if(occupant!==null&&fromSlotIdx>=0)slots[fromSlotIdx]=occupant;slots[toIdx]=value;}
+  } else if(dz.dataset.target==='pool'){if(fromSlotIdx>=0)slots[fromSlotIdx]=null;}
+  renderAll();
+}
+
+document.getElementById('zero-toggle').onclick=()=>{includeZero=!includeZero;if(!includeZero)slots=slots.map(s=>s===0?null:s);recomputeValidNumbers();clearBubble();renderAll();};
+document.getElementById('reset-digits').onclick=()=>{slots=Array(DIGITS).fill(null);renderAll();};
+document.getElementById('reset-found').onclick=()=>{foundPatterns=new Set();renderAll();};
+
+recomputeValidNumbers();renderAll();
+</script>
+</body>
+</html>
 
