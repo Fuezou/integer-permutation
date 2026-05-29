@@ -167,7 +167,7 @@
 const DIGITS = 4;
 const POS = ['千の位','百の位','十の位','一の位'];
 let includeZero = false;
-let constraints = { even:false, mult5:false, odd:false, repeat:false };
+let constraints = { even:false, mult5:false, odd:false };
 let slots = Array(DIGITS).fill(null);
 let foundPatterns = new Set();
 let allValidNumbers = [];
@@ -178,7 +178,6 @@ const constraintDefs = [
   { key: 'even',   label: '偶数（末尾が偶数）' },
   { key: 'mult5',  label: '5の倍数（末尾0か5）' },
   { key: 'odd',    label: '奇数（末尾が奇数）' },
-  { key: 'repeat', label: '同じ数字を使ってよい' },
 ];
 
 // 使える数字は常に6個。0を入れるときは一番大きい6を抜く。
@@ -187,7 +186,7 @@ function availableDigits() { return includeZero ? [0,1,2,3,4,5] : [1,2,3,4,5,6];
 // 条件に応じた簡潔な問題文
 function buildQuestion(c){
   const digits=availableDigits().join(',');
-  const pick = c.repeat ? '4個（同じ数字をくり返し使ってよい）' : '異なる4個';
+  const pick = '異なる4個';
   let kind='整数';
   if(c.even)kind='偶数';
   else if(c.odd)kind='奇数';
@@ -205,7 +204,7 @@ function isOdd(d){return d%2===1;}
 function satisfies(nums,c){
   if(nums.length!==DIGITS)return false;
   if(nums[0]===0)return false;
-  if(!c.repeat){if(new Set(nums).size!==nums.length)return false;}
+  if(new Set(nums).size!==nums.length)return false;
   if(c.even&&!isEven(nums[DIGITS-1]))return false;
   if(c.odd&&!isOdd(nums[DIGITS-1]))return false;
   if(c.mult5&&!(nums[DIGITS-1]===0||nums[DIGITS-1]===5))return false;
@@ -215,7 +214,7 @@ function enumerateAll(c){
   const digits=availableDigits(); const result=[];
   (function rec(cur){
     if(cur.length===DIGITS){if(satisfies(cur,c))result.push(cur.slice());return;}
-    for(const d of digits){if(!c.repeat&&cur.includes(d))continue;cur.push(d);rec(cur);cur.pop();}
+    for(const d of digits){if(cur.includes(d))continue;cur.push(d);rec(cur);cur.pop();}
   })([]);
   return result;
 }
@@ -251,7 +250,7 @@ function buildOrder(c){
 }
 
 // 場合分けが必要か（0あり×(偶数 or 5の倍数)×重複なし）
-function needsCases(c){ return includeZero && (c.even||c.mult5) && !c.repeat; }
+function needsCases(c){ return includeZero && (c.even||c.mult5); }
 
 // きびしい順の各桁の項を生成（場合分け不要時）
 function buildParts(c){
@@ -267,31 +266,8 @@ function buildParts(c){
     const isHead = (idx===0);
     let count, head, body, line, orderReason;
 
-    if(c.repeat){
-      // 重複あり：減らない
-      if(isEnd){
-        const el=endDigitList(c);
-        count=el.length;
-        const kind=c.even?'偶数':c.odd?'奇数':'5の倍数';
-        head=`${POS[idx]}（末尾）`;
-        body=`${kind}になるには、一の位が {${el.join(',')}} のどれか。だから ${count} 通り。重複ありなので、他の桁と同じ数字でもかまいません。`;
-        line=`一の位 ∈ {${el.join(',')}} → ${count}通り`;
-        orderReason='条件がついた桁なので最初に決める';
-      } else if(isHead && includeZero){
-        count=n-1;
-        head=`${POS[idx]}（先頭）`;
-        body=`先頭に 0 は置けません（0をつけると4桁になりません）。使える {${dstr}} から 0 を除いた ${count} 通り。重複ありでも、ここは減りません。`;
-        line=`{${dstr}} から 0 を除く → ${count}通り`;
-        orderReason='0 が置けない制限つきの桁';
-      } else {
-        count=n;
-        head=`${POS[idx]}`;
-        body=`重複ありなので、すでに使った数字をもう一度使えます。だから候補はいつも ${n} 通りのまま減りません。`;
-        line=`候補 ${n} 通り（減らない）`;
-        orderReason='制限のない桁';
-      }
-    } else {
-      // 重複なし（場合分け不要パターンのみここに来る）
+    // 重複なし固定
+    {
       if(isEnd){
         const el=endDigitList(c);
         count=el.length;
@@ -537,12 +513,8 @@ function renderPool(){
   const div=document.getElementById('pool');div.innerHTML='';
   div.dataset.target='pool';
   const digits=availableDigits();
-  if(constraints.repeat){
-    for(const d of digits){const slot=document.createElement('div');slot.className='pool-slot';slot.dataset.target='pool';slot.appendChild(renderBall(d,`pool-${d}`));div.appendChild(slot);}
-  } else {
-    const used=new Set(slots.filter(s=>s!==null));
-    for(const d of digits){const slot=document.createElement('div');slot.className='pool-slot';slot.dataset.target='pool';if(!used.has(d))slot.appendChild(renderBall(d,`pool-${d}`));div.appendChild(slot);}
-  }
+  const used=new Set(slots.filter(s=>s!==null));
+  for(const d of digits){const slot=document.createElement('div');slot.className='pool-slot';slot.dataset.target='pool';if(!used.has(d))slot.appendChild(renderBall(d,`pool-${d}`));div.appendChild(slot);}
 }
 function renderProgress(){document.getElementById('progress').textContent=`${foundPatterns.size} / ${allValidNumbers.length} 通り発見`;}
 function renderDisplayArea(){
@@ -624,8 +596,9 @@ function handleDrop(target){
   if(dz.dataset.target==='digit'){
     const toIdx=parseInt(dz.dataset.index);if(toIdx===fromSlotIdx)return;
     const occupant=slots[toIdx];
-    if(constraints.repeat){if(fromSlotIdx>=0)slots[fromSlotIdx]=null;slots[toIdx]=value;}
-    else{if(fromSlotIdx>=0)slots[fromSlotIdx]=null;if(occupant!==null&&fromSlotIdx>=0)slots[fromSlotIdx]=occupant;slots[toIdx]=value;}
+    if(fromSlotIdx>=0)slots[fromSlotIdx]=null;
+    if(occupant!==null&&fromSlotIdx>=0)slots[fromSlotIdx]=occupant;
+    slots[toIdx]=value;
   } else if(dz.dataset.target==='pool'){if(fromSlotIdx>=0)slots[fromSlotIdx]=null;}
   renderAll();
 }
@@ -638,4 +611,3 @@ recomputeValidNumbers();renderAll();
 </script>
 </body>
 </html>
-
